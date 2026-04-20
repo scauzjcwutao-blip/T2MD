@@ -7,8 +7,9 @@ name = "t2md"
 version = "0.1.0"
 description = "Text-to-Markdown Converter & Data Classifier"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "MIT"}
+
 dependencies = [
     "pdfplumber>=0.10.0",
     "python-docx>=0.8.11",
@@ -25,14 +26,19 @@ dependencies = [
     "click>=8.1.0",
 ]
 
+# ── 所有 project.* 子节放一起 ──
+
+[project.optional-dependencies]
+docling = ["docling>=2.0.0"]
+
 [project.scripts]
 t2md = "t2md:main"
 t2md-gui = "t2md_gui:main"
 
-# ── 告诉 setuptools 如何找到代码 ──
+# ── 构建配置 ──
 
 [tool.setuptools]
-py-modules = ["t2md", "t2md_gui"]   # ← 根目录的独立脚本
+py-modules = ["t2md", "t2md_gui"]
 
 [tool.setuptools.packages.find]
-include = ["engine*"]                # ← engine 包及子包
+include = ["engine*"]
