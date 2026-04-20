@@ -1,4 +1,4 @@
-"""Language detection and bilingual UI strings (English / German)."""
+"""Language detection and trilingual UI strings (English / Chinese / German)."""
 
 from langdetect import detect as _detect
 from langdetect import LangDetectException
@@ -8,24 +8,34 @@ from langdetect import LangDetectException
 # Part 1: Language detection
 # ──────────────────────────────────────────────
 
+# Map langdetect codes to our internal codes
+_LANG_MAP = {
+    "zh-cn": "zh",
+    "zh-tw": "zh",
+    "en": "en",
+    "de": "de",
+}
+
+
 def detect(text: str) -> str:
     """
     Detect the language of the given text.
 
     Returns:
-        Language code such as 'zh-cn', 'en', 'ja'.
+        Normalized language code: 'zh', 'en', 'de', etc.
         Returns 'unknown' on failure.
     """
     if not text or not text.strip():
         return "unknown"
     try:
-        return _detect(text)
+        raw = _detect(text)
+        return _LANG_MAP.get(raw, raw)  # ← 标准化
     except LangDetectException:
         return "unknown"
 
 
 # ──────────────────────────────────────────────
-# Part 2: Bilingual UI strings
+# Part 2: Trilingual UI strings
 # ──────────────────────────────────────────────
 
 TEXTS = {
@@ -52,6 +62,34 @@ TEXTS = {
         "ready": "Ready",
         "converting": "Converting…",
         "complete": "Conversion complete",
+        "src_not_found": "Source path does not exist",
+        "dst_create_fail": "Cannot create output directory",
+    },
+    "zh": {
+        "author": "作者",
+        "date": "日期",
+        "category": "分类",
+        "source": "来源",
+        "processing": "处理中",
+        "done": "完成",
+        "error": "错误",
+        "skipped": "已跳过",
+        "watching": "正在监视目录",
+        "no_files": "未找到支持的文件",
+        "converted": "已转换",
+        "files_processed": "个文件已处理",
+        "output_dir": "输出目录",
+        "select_src": "选择来源",
+        "select_dst": "选择目标",
+        "start": "开始转换",
+        "language": "语言",
+        "recursive": "包含子目录",
+        "status": "状态",
+        "ready": "就绪",
+        "converting": "转换中…",
+        "complete": "转换完成",
+        "src_not_found": "来源路径不存在",
+        "dst_create_fail": "无法创建输出目录",
     },
     "de": {
         "author": "Autor",
@@ -76,8 +114,13 @@ TEXTS = {
         "ready": "Bereit",
         "converting": "Konvertiere…",
         "complete": "Konvertierung abgeschlossen",
+        "src_not_found": "Quellpfad existiert nicht",
+        "dst_create_fail": "Ausgabeverzeichnis kann nicht erstellt werden",
     },
 }
+
+# All supported UI languages
+SUPPORTED_LANGUAGES = list(TEXTS.keys())
 
 
 def get_text(key: str, lang: str = "en") -> str:
