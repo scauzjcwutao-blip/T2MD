@@ -10,3 +10,6 @@ striprtf>=0.0.26
 watchdog>=3.0.0
 rich>=13.0.0
 click>=8.1.0
+# NOTE: docling pulls in PyTorch (~2 GB); consider optional install
+docling>=2.31.0
+langdetect>=1.0.9
