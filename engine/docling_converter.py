@@ -1,6 +1,10 @@
 """Docling engine — convert PDF/Word/HTML/images to Markdown."""
 
+from __future__ import annotations  # ← 放在文件最顶部，支持 3.9
+
 from pathlib import Path
+from typing import Optional
+
 from docling.document_converter import DocumentConverter
 
 
@@ -9,7 +13,7 @@ class DoclingConversionError(Exception):
 
 
 # Module-level singleton — initialized lazily
-_converter: DocumentConverter | None = None
+_converter: Optional[DocumentConverter] = None
 
 
 def _get_converter() -> DocumentConverter:
@@ -53,7 +57,7 @@ def convert_by_docling(file_path: str) -> str:
         return markdown
 
     except DoclingConversionError:
-        raise  # ← 不要二次包装
+        raise
     except Exception as e:
         raise DoclingConversionError(
             f"Docling conversion failed for {file_path}: {e}"
