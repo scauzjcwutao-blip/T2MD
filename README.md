@@ -32,3 +32,27 @@ t2md/
 │   └── .gitkeep
 └── input/
     └── .gitkeep
+```
+## Installation
+
+```bash
+git clone https://github.com/yourusername/t2md.git
+cd t2md
+pip install -e .
+```
+## Usage
+
+### CLI
+
+```bash
+t2md --src ./input --dst ./output
+t2md --src ./input --dst ./output --lang de --recursive
+t2md --src ./input --dst ./output --watch
+t2md --help
+``` 
+### GUI
+```bash
+t2md-gui
+```
+
+```
