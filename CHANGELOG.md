@@ -8,9 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ## [0.1.0] - 2026-04-20
 
 ### Added
-- 文本文件转 Markdown 的核心引擎 (`engine/`)
-- 文档分类功能 (`classifier.py`)
-- 语言检测功能 (`lang.py`)
-- 转换流水线 (`pipeline.py`)
-- CLI 命令行工具 (`t2md.py`)
-- GUI 图形界面 (`t2md_gui.py`)
+- Dual-engine architecture: Docling + rules-based converter
+- Document classifier (`classifier.py`) — routes files to the correct engine
+- Language detection (`lang.py`)
+- Rules engine (`rules.py`) — plain text to Markdown
+- Docling engine (`docling_converter.py`) — PDF/Word/HTML to Markdown
+- Conversion pipeline (`pipeline.py`)
+- CLI entry point (`t2md.py`)
+- GUI entry point (`t2md_gui.py`) — placeholder
+- Test suite (`tests/`)
