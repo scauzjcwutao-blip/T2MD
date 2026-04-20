@@ -19,6 +19,7 @@ dependencies = [
     "lxml>=4.9.0",
     "chardet>=5.2.0",
     "striprtf>=0.0.26",
+    "langdetect>=1.0.9",
     "watchdog>=3.0.0",
     "rich>=13.0.0",
     "click>=8.1.0",
@@ -27,3 +28,11 @@ dependencies = [
 [project.scripts]
 t2md = "t2md:main"
 t2md-gui = "t2md_gui:main"
+
+# ── 告诉 setuptools 如何找到代码 ──
+
+[tool.setuptools]
+py-modules = ["t2md", "t2md_gui"]   # ← 根目录的独立脚本
+
+[tool.setuptools.packages.find]
+include = ["engine*"]                # ← engine 包及子包
