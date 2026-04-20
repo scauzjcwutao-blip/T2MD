@@ -3,11 +3,15 @@
 import re
 
 
-def convert_by_rules(text: str) -> str:
+def convert_by_rules(text: str, lang: str = "en") -> str:
     """
     Convert plain text to Markdown using rule-based heuristics.
 
     Detects: headings, ordered lists, unordered lists, separators, paragraphs.
+
+    Args:
+        text: Plain text content.
+        lang: Language code (reserved for future locale-specific rules).
     """
     if not text or not text.strip():
         return ""
@@ -56,10 +60,11 @@ def convert_by_rules(text: str) -> str:
             i += 1
             continue
 
-        # ── Ordered list: 1. or 1) or 1、 ──
-        if re.match(r"^\d+[.、)]\s*", stripped):
-            content = re.sub(r"^\d+[.、)]\s*", "", stripped)
-            result.append(f"1. {content}")
+        # ── Ordered list: 1. or 1) or 1、 ── preserve original number ──
+        m = re.match(r"^(\d+)[.、)]\s*(.*)$", stripped)
+        if m:
+            num, content = m.group(1), m.group(2)
+            result.append(f"{num}. {content}")
             i += 1
             continue
 
@@ -77,6 +82,10 @@ def convert_by_rules(text: str) -> str:
     return _clean_output("\n".join(result))
 
 
+# Punctuation that signals "this is a sentence, not a heading"
+_SENTENCE_ENDING = set(".,;:!?)\"'。，；：！？）」》…、"\"'")
+
+
 def _is_likely_heading(lines: list, index: int) -> bool:
     """Check if the current line is likely a heading."""
     line = lines[index].strip()
@@ -85,8 +94,16 @@ def _is_likely_heading(lines: list, index: int) -> bool:
     if len(line) > 30:
         return False
 
-    # Should not end with punctuation
-    if line and line[-1] in ".,;!?)。，；！？）、":
+    # Must contain at least one letter/CJK character (not just numbers/symbols)
+    if not re.search(r"[\w\u4e00-\u9fff]", line):
+        return False
+
+    # Should not end with sentence-ending punctuation
+    if line and line[-1] in _SENTENCE_ENDING:
+        return False
+
+    # Should not look like a list item
+    if re.match(r"^(\d+[.、)]|[-*·•])\s", line):
         return False
 
     # Previous line is blank (or this is the first line)
