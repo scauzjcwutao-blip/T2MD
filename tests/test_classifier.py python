@@ -1,20 +1,26 @@
 """Tests for engine.classifier."""
 
 import unittest
-from engine.classifier import classify  # 根据你实际的函数名调整
+from engine.classifier import classify
 
 
 class TestClassifier(unittest.TestCase):
 
-    def test_plain_text(self):
-        """纯文本应被正确识别。"""
-        result = classify("这是一段普通文本。")
-        self.assertIsNotNone(result)
+    def test_pdf_uses_docling(self):
+        result = classify("report.pdf")
+        self.assertEqual(result["engine"], "docling")
 
-    def test_empty_input(self):
-        """空字符串不应报错。"""
-        result = classify("")
-        self.assertIsNotNone(result)
+    def test_txt_uses_rules(self):
+        result = classify("notes.txt")
+        self.assertEqual(result["engine"], "rules")
+
+    def test_docx_uses_docling(self):
+        result = classify("file.docx")
+        self.assertEqual(result["engine"], "docling")
+
+    def test_unknown_ext_defaults_to_rules(self):
+        result = classify("data.xyz")
+        self.assertEqual(result["engine"], "rules")
 
 
 if __name__ == "__main__":
