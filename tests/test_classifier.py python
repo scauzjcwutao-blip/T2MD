@@ -1,0 +1,21 @@
+"""Tests for engine.classifier."""
+
+import unittest
+from engine.classifier import classify  # 根据你实际的函数名调整
+
+
+class TestClassifier(unittest.TestCase):
+
+    def test_plain_text(self):
+        """纯文本应被正确识别。"""
+        result = classify("这是一段普通文本。")
+        self.assertIsNotNone(result)
+
+    def test_empty_input(self):
+        """空字符串不应报错。"""
+        result = classify("")
+        self.assertIsNotNone(result)
+
+
+if __name__ == "__main__":
+    unittest.main()
