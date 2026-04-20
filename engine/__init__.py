@@ -1,1 +1,1 @@
-"""t2md engine — document conversion and classification."""
+"""T2MD engine — Docling + Rules-based dual-mode converter."""
