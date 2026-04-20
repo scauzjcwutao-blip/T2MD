@@ -1,4 +1,32 @@
-"""Bilingual UI strings (English / German)."""
+"""Language detection and bilingual UI strings (English / German)."""
+
+from langdetect import detect as _detect
+from langdetect import LangDetectException
+
+
+# ──────────────────────────────────────────────
+# Part 1: Language detection
+# ──────────────────────────────────────────────
+
+def detect(text: str) -> str:
+    """
+    Detect the language of the given text.
+
+    Returns:
+        Language code such as 'zh-cn', 'en', 'ja'.
+        Returns 'unknown' on failure.
+    """
+    if not text or not text.strip():
+        return "unknown"
+    try:
+        return _detect(text)
+    except LangDetectException:
+        return "unknown"
+
+
+# ──────────────────────────────────────────────
+# Part 2: Bilingual UI strings
+# ──────────────────────────────────────────────
 
 TEXTS = {
     "en": {
