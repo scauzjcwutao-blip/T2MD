@@ -36,8 +36,8 @@ t2md/
 ## Installation
 
 ```bash
-git clone https://github.com/yourusername/t2md.git
-cd t2md
+git clone https://github.com/scauzjcwutao-blip/T2MD.git
+cd T2MD
 pip install -e .
 ```
 ## Usage
@@ -57,4 +57,4 @@ t2md-gui
 ## Demo
 
 https://github.com/user-attachments/assets/8ce75598-cf4c-46b9-acdb-d735b3fe7dec
-```
+
