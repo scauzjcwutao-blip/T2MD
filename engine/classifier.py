@@ -53,7 +53,7 @@ def classify(file_path: str) -> dict:
     elif ext in RULES_EXTENSIONS or ext == "":
         engine = "rules"
     else:
-        engine = "rules"  # default fallback
+        engine = "rules"  # default fallback for unknown extensions
 
     return {
         "engine": engine,
@@ -75,37 +75,61 @@ CATEGORIES = {
         # German
         "Umsatz", "Gewinn", "Verlust", "Einkommen", "Ausgabe",
         "Steuer", "Investition", "Bilanz", "Finanzen",
+        # Chinese
+        "收入", "利润", "亏损", "预算", "税收", "投资", "资产", "负债",
+        "现金流", "财务", "会计", "银行", "贷款", "利率", "股票", "债券",
     ],
     "technology": [
         "software", "hardware", "algorithm", "database", "api",
         "server", "cloud", "programming", "code", "developer",
         "machine learning", "artificial intelligence", "neural",
         "python", "javascript", "framework", "deployment",
+        # German
         "Algorithmus", "Datenbank", "Programmierung", "Entwickler",
+        # Chinese / Japanese / Korean common terms
+        "软件", "硬件", "算法", "数据库", "服务器", "云计算",
+        "编程", "代码", "人工智能", "机器学习", "神经网络",
+        "ソフト", "ハードウェア", "アルゴリズム", "データベース",
     ],
     "legal": [
         "contract", "agreement", "clause", "liability", "compliance",
         "regulation", "law", "court", "plaintiff", "defendant",
         "attorney", "legal", "jurisdiction", "statute", "legislation",
+        # German
         "Vertrag", "Vereinbarung", "Gesetz", "Gericht", "Recht",
+        # Chinese
+        "合同", "协议", "条款", "责任", "合规", "法规", "法律",
+        "法院", "原告", "被告", "律师", "管辖权",
     ],
     "medical": [
         "patient", "diagnosis", "treatment", "symptom", "disease",
         "hospital", "doctor", "medicine", "clinical", "therapy",
         "surgery", "prescription", "health", "medical", "pharmaceutical",
+        # German
         "Patient", "Diagnose", "Behandlung", "Krankenhaus", "Arzt",
+        # Chinese
+        "患者", "诊断", "治疗", "症状", "疾病", "医院", "医生",
+        "药物", "临床", "手术", "处方", "健康",
     ],
     "education": [
         "student", "teacher", "curriculum", "course", "lecture",
         "university", "school", "education", "exam", "grade",
         "research", "academic", "study", "learning", "training",
+        # German
         "Schüler", "Lehrer", "Universität", "Schule", "Bildung",
+        # Chinese
+        "学生", "教师", "课程", "大学", "学校", "教育", "考试",
+        "研究", "学术", "学习",
     ],
     "marketing": [
         "campaign", "brand", "customer", "market", "advertising",
         "promotion", "sales", "target audience", "conversion",
         "engagement", "social media", "seo", "content marketing",
+        # German
         "Kampagne", "Marke", "Kunde", "Werbung", "Verkauf",
+        # Chinese
+        "营销", "品牌", "客户", "市场", "广告", "推广", "销售",
+        "社交媒体", "内容营销",
     ],
 }
 
