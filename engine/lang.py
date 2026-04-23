@@ -1,4 +1,4 @@
-"""Language detection and trilingual UI strings (English / Chinese / German)."""
+"""Language detection and trilingual UI strings (English / Chinese / German / Japanese / Korean)."""
 
 from langdetect import detect as _detect
 from langdetect import LangDetectException
@@ -12,6 +12,8 @@ from langdetect import LangDetectException
 _LANG_MAP = {
     "zh-cn": "zh",
     "zh-tw": "zh",
+    "ja": "ja",      # ← 新增
+    "ko": "ko",      # ← 新增
     "en": "en",
     "de": "de",
 }
@@ -22,15 +24,16 @@ def detect(text: str) -> str:
     Detect the language of the given text.
 
     Returns:
-        Normalized language code: 'zh', 'en', 'de', etc.
-        Returns 'unknown' on failure.
+        Normalized language code: 'zh', 'en', 'de', 'ja', 'ko'...
+        Returns 'unknown' on failure or empty text.
     """
     if not text or not text.strip():
         return "unknown"
+
     try:
         raw = _detect(text)
-        return _LANG_MAP.get(raw, raw)  # ← 标准化
-    except LangDetectException:
+        return _LANG_MAP.get(raw, raw)  # 未知语言直接返回原码（如 'fr'）
+    except (LangDetectException, Exception):  # 捕获所有可能异常，更稳健
         return "unknown"
 
 
@@ -91,7 +94,7 @@ TEXTS = {
         "src_not_found": "来源路径不存在",
         "dst_create_fail": "无法创建输出目录",
     },
-    "de": {
+    "de": {  # ...（保持不变）
         "author": "Autor",
         "date": "Datum",
         "category": "Kategorie",
