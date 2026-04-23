@@ -7,14 +7,13 @@ def convert_by_rules(text: str, lang: str = "en") -> str:
     """
     Convert plain text to Markdown using rule-based heuristics.
 
-    Detects: headings, ordered lists, unordered lists, separators, paragraphs.
-
-    Args:
-        text: Plain text content.
-        lang: Language code (reserved for future locale-specific rules).
+    Now supports language-aware rules (especially Chinese/Japanese).
     """
     if not text or not text.strip():
         return ""
+
+    # Normalize language code
+    lang = lang.lower()[:2] if lang else "en"
 
     lines = text.strip().split("\n")
     result = []
@@ -54,23 +53,23 @@ def convert_by_rules(text: str, lang: str = "en") -> str:
                 i += 2
                 continue
 
-        # ── Heading guess: short line surrounded by blank lines ──
-        if _is_likely_heading(lines, i):
+        # ── Heading guess (language-aware) ──
+        if _is_likely_heading(lines, i, lang):
             result.append(f"## {stripped}")
             i += 1
             continue
 
-        # ── Ordered list: 1. or 1) or 1、 ── preserve original number ──
-        m = re.match(r"^(\d+)[.、)]\s*(.*)$", stripped)
+        # ── Ordered list: 1. 1) 1、 （支持中文常见序号）──
+        m = re.match(r"^(\d+|[一二三四五六七八九十]+)[.、)]\s*(.*)$", stripped)
         if m:
             num, content = m.group(1), m.group(2)
             result.append(f"{num}. {content}")
             i += 1
             continue
 
-        # ── Unordered list: - * · • ──
-        if re.match(r"^[-*·•]\s+", stripped):
-            content = re.sub(r"^[-*·•]\s+", "", stripped)
+        # ── Unordered list（增加更多中文常见项目符号）──
+        if re.match(r"^[-*·•○◆◇■□]\s+", stripped):
+            content = re.sub(r"^[-*·•○◆◇■□]\s+", "", stripped)
             result.append(f"- {content}")
             i += 1
             continue
@@ -82,34 +81,38 @@ def convert_by_rules(text: str, lang: str = "en") -> str:
     return _clean_output("\n".join(result))
 
 
-# Punctuation that signals "this is a sentence, not a heading"
-_SENTENCE_ENDING = set(".,;:!?)\"'。，；：！？）」》…、"\"'")
+# Language-aware punctuation that signals "this is a sentence, not a heading"
+_SENTENCE_ENDING = {
+    "en": set(".,;:!?)\"'"),
+    "zh": set("。，；：！？）」》…、"),
+    "ja": set("。、，；：！？）」】…"),
+    "ko": set(".,;:!?)\"'。、，；：！？)"),
+}
 
-
-def _is_likely_heading(lines: list, index: int) -> bool:
-    """Check if the current line is likely a heading."""
+def _is_likely_heading(lines: list, index: int, lang: str = "en") -> bool:
+    """Check if the current line is likely a heading (now language-aware)."""
     line = lines[index].strip()
 
-    # Too long to be a heading
-    if len(line) > 30:
+    # Language-specific max length (中文标题常较长)
+    max_len = 50 if lang in ("zh", "ja", "ko") else 30
+    if len(line) > max_len:
         return False
 
-    # Must contain at least one letter/CJK character (not just numbers/symbols)
-    if not re.search(r"[\w\u4e00-\u9fff]", line):
+    # Must contain at least one letter/CJK character
+    if not re.search(r"[\w\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]", line):
         return False
 
-    # Should not end with sentence-ending punctuation
-    if line and line[-1] in _SENTENCE_ENDING:
+    # Should not end with sentence-ending punctuation (语言感知)
+    ending_punct = _SENTENCE_ENDING.get(lang, _SENTENCE_ENDING["en"])
+    if line and line[-1] in ending_punct:
         return False
 
     # Should not look like a list item
-    if re.match(r"^(\d+[.、)]|[-*·•])\s", line):
+    if re.match(r"^(\d+|[一二三四五六七八九十]+)[.、)]|[-*·•○◆◇■□]\s", line):
         return False
 
-    # Previous line is blank (or this is the first line)
+    # Previous and next line should be blank (or edge of document)
     prev_empty = (index == 0) or (not lines[index - 1].strip())
-
-    # Next line is blank (or this is the last line)
     next_empty = (index == len(lines) - 1) or (not lines[index + 1].strip())
 
     return prev_empty and next_empty
