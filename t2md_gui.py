@@ -6,14 +6,16 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk, scrolledtext
 
-from engine.pipeline import convert_file, SUPPORTED_EXTENSIONS
+# === 关键修复：使用我们已有的 engine 接口 ===
+from engine import convert          # 主转换函数
+from engine.classifier import DOCLING_EXTENSIONS, RULES_EXTENSIONS
 from engine.lang import get_text
 
 
 class T2mdGui:
     def __init__(self):
         self.lang = "en"
-        self._running = False  # ← 防重复点击标志
+        self._running = False
 
         self.root = tk.Tk()
         self.root.title("t2md — Text to Markdown Converter")
@@ -26,9 +28,7 @@ class T2mdGui:
         self.recursive_var = tk.BooleanVar(value=False)
         self.status_var = tk.StringVar(value=get_text("ready", self.lang))
 
-        # ← 保存需要动态更新的控件引用
         self._widgets = {}
-
         self._build_ui()
 
     # ── UI ──────────────────────────────────────────────────────
@@ -68,26 +68,23 @@ class T2mdGui:
         opt_frame = ttk.Frame(main)
         opt_frame.pack(fill=tk.X, pady=(0, 5))
 
-        lang_label = ttk.Label(
-            opt_frame, text=get_text("language", self.lang) + ":"
-        )
+        lang_label = ttk.Label(opt_frame, text=get_text("language", self.lang) + ":")
         lang_label.pack(side=tk.LEFT, padx=(0, 5))
         self._widgets["lang_label"] = lang_label
 
+        # 支持所有语言（en/zh/ja/de/ko）
         lang_cb = ttk.Combobox(
             opt_frame,
             textvariable=self.lang_var,
-            values=["en", "zh", "de"],  # ← 加上中文
-            width=5,
+            values=["en", "zh", "ja", "de", "ko"],
+            width=6,
             state="readonly",
         )
         lang_cb.pack(side=tk.LEFT, padx=(0, 15))
         lang_cb.bind("<<ComboboxSelected>>", self._on_lang_change)
 
         recursive_cb = ttk.Checkbutton(
-            opt_frame,
-            text=get_text("recursive", self.lang),
-            variable=self.recursive_var,
+            opt_frame, text=get_text("recursive", self.lang), variable=self.recursive_var
         )
         recursive_cb.pack(side=tk.LEFT)
         self._widgets["recursive_cb"] = recursive_cb
@@ -106,9 +103,7 @@ class T2mdGui:
         self.log.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
         # Status bar
-        ttk.Label(
-            main, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W
-        ).pack(fill=tk.X)
+        ttk.Label(main, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W).pack(fill=tk.X)
 
     # ── Helpers ─────────────────────────────────────────────────
     def _browse_src(self):
@@ -122,12 +117,10 @@ class T2mdGui:
             self.dst_var.set(path)
 
     def _on_lang_change(self, _event=None):
-        """Update language and refresh all UI text."""
         self.lang = self.lang_var.get()
         self._refresh_ui_text()
 
     def _refresh_ui_text(self):
-        """Refresh all UI labels to current language."""
         lang = self.lang
         self._widgets["src_frame"].config(text=get_text("select_src", lang))
         self._widgets["dst_frame"].config(text=get_text("select_dst", lang))
@@ -136,38 +129,38 @@ class T2mdGui:
         self._widgets["start_btn"].config(text=get_text("start", lang))
         self.status_var.set(get_text("ready", lang))
 
-    def _log(self, msg):
+    def _log(self, msg: str):
+        """统一日志输出（带 [T2MD] 前缀，保持项目风格）"""
         self.log.config(state=tk.NORMAL)
-        self.log.insert(tk.END, msg + "\n")
+        self.log.insert(tk.END, f"[T2MD] {msg}\n")
         self.log.see(tk.END)
         self.log.config(state=tk.DISABLED)
 
     def _collect_files(self):
+        """收集支持的文件（兼容 docling + rules 引擎）"""
         src = Path(self.src_var.get())
         files = []
+        supported = DOCLING_EXTENSIONS | RULES_EXTENSIONS
+
         if src.is_file():
-            if src.suffix.lower() in SUPPORTED_EXTENSIONS:
+            if src.suffix.lower() in supported:
                 files.append(src)
         elif src.is_dir():
             pattern = "**/*" if self.recursive_var.get() else "*"
-            for ext in SUPPORTED_EXTENSIONS:
+            for ext in supported:
                 files.extend(src.glob(f"{pattern}{ext}"))
         return sorted(set(files))
 
     def _validate_paths(self) -> bool:
-        """Validate source and destination paths before conversion."""
         src = Path(self.src_var.get())
         if not src.exists():
-            messagebox.showerror(
-                "Error", get_text("src_not_found", self.lang)
-            )
+            messagebox.showerror("Error", get_text("src_not_found", self.lang))
             return False
 
         dst = Path(self.dst_var.get())
         if not dst.exists():
             try:
                 dst.mkdir(parents=True, exist_ok=True)
-                self._log(f"📁 Created output directory: {dst}")
             except OSError as e:
                 messagebox.showerror("Error", str(e))
                 return False
@@ -175,10 +168,9 @@ class T2mdGui:
 
     # ── Conversion ──────────────────────────────────────────────
     def _start(self):
-        if self._running:  # ← 防重复点击
+        if self._running:
             return
-
-        if not self._validate_paths():  # ← 路径检查
+        if not self._validate_paths():
             return
 
         self._running = True
@@ -186,14 +178,13 @@ class T2mdGui:
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
-        lang = self.lang
         dst = self.dst_var.get()
+        lang = self.lang   # 当前界面语言（仅用于 UI 提示，不影响转换）
 
         self.root.after(0, lambda: self.status_var.set(get_text("converting", lang)))
         self.root.after(0, lambda: self._log(f"--- {get_text('start', lang)} ---"))
 
         files = self._collect_files()
-
         if not files:
             self.root.after(0, lambda: self._log(get_text("no_files", lang)))
             self._finish()
@@ -202,27 +193,23 @@ class T2mdGui:
         success = 0
         for f in files:
             try:
-                result = convert_file(str(f), dst, lang)
-                if result:
-                    msg = f"✅ {f.name} → {result}"
-                    success += 1
-                else:
-                    msg = f"⏭️  {f.name} — {get_text('skipped', lang)}"
+                # 调用我们真实的 convert 函数（单文件转换）
+                convert(str(f), dst)          # ← 核心调用
+                msg = f"✅ {f.name} 转换成功"
+                success += 1
             except Exception as e:
                 msg = f"❌ {f.name} — {e}"
             self.root.after(0, lambda m=msg: self._log(m))
 
-        done = f"{get_text('complete', lang)}: {success} {get_text('files_processed', lang)}"
-        self.root.after(0, lambda: self._log(done))
-        self.root.after(0, lambda: self.status_var.set(done))
+        done_msg = f"{get_text('complete', lang)}: {success} {get_text('files_processed', lang)}"
+        self.root.after(0, lambda: self._log(done_msg))
+        self.root.after(0, lambda: self.status_var.set(done_msg))
         self._finish()
 
     def _finish(self):
-        """Re-enable the start button after conversion."""
         self._running = False
         self.root.after(0, lambda: self._widgets["start_btn"].config(state=tk.NORMAL))
 
-    # ── Run ─────────────────────────────────────────────────────
     def run(self):
         self.root.mainloop()
 
@@ -234,5 +221,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-   
-    
