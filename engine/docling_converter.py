@@ -33,7 +33,9 @@ def _get_converter():
 
 
 def _pdf_fallback(file_path: str) -> str:
-    """Extract text from PDF via pdfplumber when docling is unavailable."""
+    """Extract text from PDF via pdfplumber when docling is unavailable.
+    增加对损坏/加密PDF的健壮处理。
+    """
     try:
         import pdfplumber
     except ImportError as exc:
@@ -43,15 +45,28 @@ def _pdf_fallback(file_path: str) -> str:
         ) from exc
 
     pages = []
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            text = page.extract_text() or ""
-            if text.strip():
-                pages.append(text)
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                # 更鲁棒的提取参数（显著提升表格、复杂布局PDF质量）
+                text = page.extract_text(
+                    layout=True,
+                    x_tolerance=3,
+                    y_tolerance=3
+                ) or ""
+                if text.strip():
+                    pages.append(text)
+
+    except Exception as e:   # 捕获损坏、加密、无法解析等所有异常
+        print(f"[T2MD] ⚠️ PDF may be corrupted, encrypted or unreadable: {e}")
+        print(f"[T2MD] File: {file_path}")
+        # 返回友好 Markdown 提示，用户仍能得到 .md 文件
+        return f"# ⚠️ PDF 转换失败\n\n文件可能已损坏、加密或无法解析：\n{file_path}\n\n错误信息：{e}\n"
 
     raw = "\n\n".join(pages)
 
     if not raw.strip():
+        print(f"[T2MD] ⚠️ PDF extracted empty content: {file_path}")
         return ""
 
     # 语言检测（和 convert.py 主流程完全一致）
