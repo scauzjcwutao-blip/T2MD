@@ -32,9 +32,24 @@ def _get_converter():
     return _converter
 
 
+def _table_to_markdown(table: list) -> str:
+    """将 pdfplumber 提取的表格转为 Markdown 表格（专为 10-K、年报等设计）"""
+    if not table or not table[0]:
+        return ""
+    # 表头
+    header = "| " + " | ".join(str(cell) if cell is not None else "" for cell in table[0]) + " |"
+    separator = "| " + " | ".join("---" for _ in table[0]) + " |"
+    # 数据行
+    rows = [
+        "| " + " | ".join(str(cell) if cell is not None else "" for cell in row) + " |"
+        for row in table[1:]
+    ]
+    return "\n".join([header, separator] + rows)
+
+
 def _pdf_fallback(file_path: str) -> str:
     """Extract text from PDF via pdfplumber when docling is unavailable.
-    增加对损坏/加密PDF的健壮处理。
+    已优化：支持表格提取（适合10-K、年报等结构化文件）
     """
     try:
         import pdfplumber
@@ -47,20 +62,33 @@ def _pdf_fallback(file_path: str) -> str:
     pages = []
     try:
         with pdfplumber.open(file_path) as pdf:
-            for page in pdf.pages:
-                # 更鲁棒的提取参数（显著提升表格、复杂布局PDF质量）
+            for page_num, page in enumerate(pdf.pages, 1):
+                # 1. 提取普通文本（优化布局）
                 text = page.extract_text(
                     layout=True,
                     x_tolerance=3,
                     y_tolerance=3
                 ) or ""
+
+                # 2. 提取表格（关键改进）
+                tables = page.extract_tables()
+                if tables:
+                    text += f"\n\n### Page {page_num} Tables\n\n"
+                    for i, table in enumerate(tables, 1):
+                        if table:
+                            markdown_table = _table_to_markdown(table)
+                            text += f"**Table {i}**\n{markdown_table}\n\n"
+
+                # 3. 图表提示（10-K 常用）
+                if page.images:
+                    text += f"**Figures on page {page_num}**: {len(page.images)} image(s) detected.\n"
+
                 if text.strip():
                     pages.append(text)
 
     except Exception as e:   # 捕获损坏、加密、无法解析等所有异常
         print(f"[T2MD] ⚠️ PDF may be corrupted, encrypted or unreadable: {e}")
         print(f"[T2MD] File: {file_path}")
-        # 返回友好 Markdown 提示，用户仍能得到 .md 文件
         return f"# ⚠️ PDF 转换失败\n\n文件可能已损坏、加密或无法解析：\n{file_path}\n\n错误信息：{e}\n"
 
     raw = "\n\n".join(pages)
@@ -69,7 +97,7 @@ def _pdf_fallback(file_path: str) -> str:
         print(f"[T2MD] ⚠️ PDF extracted empty content: {file_path}")
         return ""
 
-    # 语言检测（和 convert.py 主流程完全一致）
+    # 语言检测（和 pipeline.py 主流程完全一致）
     lang = detect(raw)
     print(f"[T2MD] Language: {lang} (PDF fallback)")
 
