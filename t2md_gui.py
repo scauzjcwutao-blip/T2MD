@@ -81,7 +81,7 @@ class T2mdGui:
         recursive_cb.pack(side=tk.LEFT, padx=(0, 15))
         self._widgets["recursive_cb"] = recursive_cb
 
-        # Batch Mode 开关（必要时使用多进程）
+        # Batch Mode 开关
         batch_cb = ttk.Checkbutton(
             opt_frame, text="Batch Mode (fast for large number of files)", variable=self.batch_var
         )
@@ -100,7 +100,7 @@ class T2mdGui:
         # Status bar
         ttk.Label(main, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W).pack(fill=tk.X)
 
-    # Helpers（保持不变）
+    # ── Helpers ─────────────────────────────────────────────────
     def _browse_src(self):
         path = filedialog.askdirectory()
         if path:
@@ -121,4 +121,111 @@ class T2mdGui:
         self._widgets["dst_frame"].config(text=get_text("select_dst", lang))
         self._widgets["lang_label"].config(text=get_text("language", lang) + ":")
         self._widgets["recursive_cb"].config(text=get_text("recursive", lang))
-        self._widgets["start_btn"].config(text=get
+        self._widgets["start_btn"].config(text=get_text("start", lang))
+        self.status_var.set(get_text("ready", lang))
+
+    def _log(self, msg: str):
+        self.log.config(state=tk.NORMAL)
+        self.log.insert(tk.END, f"[T2MD] {msg}\n")
+        self.log.see(tk.END)
+        self.log.config(state=tk.DISABLED)
+
+    def _collect_files(self):
+        src = Path(self.src_var.get())
+        files = []
+        supported = DOCLING_EXTENSIONS | RULES_EXTENSIONS
+
+        if src.is_file():
+            if src.suffix.lower() in supported:
+                files.append(src)
+        elif src.is_dir():
+            pattern = "**/*" if self.recursive_var.get() else "*"
+            for ext in supported:
+                files.extend(src.glob(f"{pattern}{ext}"))
+        return sorted(set(files))
+
+    def _validate_paths(self) -> bool:
+        src = Path(self.src_var.get())
+        if not src.exists():
+            messagebox.showerror("Error", get_text("src_not_found", self.lang))
+            return False
+
+        dst = Path(self.dst_var.get())
+        if not dst.exists():
+            try:
+                dst.mkdir(parents=True, exist_ok=True)
+            except OSError as e:
+                messagebox.showerror("Error", str(e))
+                return False
+        return True
+
+    # ── Conversion ──────────────────────────────────────────────
+    def _start(self):
+        if self._running:
+            return
+        if not self._validate_paths():
+            return
+
+        self._running = True
+        self._widgets["start_btn"].config(state=tk.DISABLED)
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        dst = self.dst_var.get()
+        lang = self.lang
+
+        self.root.after(0, lambda: self.status_var.set(get_text("converting", lang)))
+        self.root.after(0, lambda: self._log(f"--- {get_text('start', lang)} ---"))
+
+        if self.batch_var.get():
+            # 批量模式（大量文件时推荐使用）
+            self._log("🚀 Batch mode enabled - using multi-process...")
+            try:
+                result = convert_batch(
+                    src_path=self.src_var.get(),
+                    output_dir=dst,
+                    recursive=self.recursive_var.get()
+                )
+                self._log(f"✅ Batch completed! Total: {result['total']:,} | "
+                          f"Success: {result['success']:,} | Failed: {result['failed']:,}")
+            except Exception as e:
+                self._log(f"❌ Batch failed: {e}")
+        else:
+            # 普通模式
+            files = self._collect_files()
+            if not files:
+                self.root.after(0, lambda: self._log(get_text("no_files", lang)))
+                self._finish()
+                return
+
+            success = 0
+            for f in files:
+                try:
+                    convert(str(f), dst)
+                    msg = f"✅ {f.name} 转换成功"
+                    success += 1
+                except Exception as e:
+                    msg = f"❌ {f.name} — {e}"
+                self.root.after(0, lambda m=msg: self._log(m))
+
+            done_msg = f"{get_text('complete', lang)}: {success} {get_text('files_processed', lang)}"
+            self.root.after(0, lambda: self._log(done_msg))
+            self.root.after(0, lambda: self.status_var.set(done_msg))
+
+        self._finish()
+
+    def _finish(self):
+        self._running = False
+        self.root.after(0, lambda: self._widgets["start_btn"].config(state=tk.NORMAL))
+
+    def run(self):
+        self.root.mainloop()
+
+
+def main():
+    app = T2mdGui()
+    app.run()
+
+
+if __name__ == "__main__":
+    main()
