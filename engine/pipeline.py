@@ -2,11 +2,16 @@
 
 import os
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-from engine.classifier import classify
+from engine.classifier import classify, classify_content, DOCLING_EXTENSIONS, RULES_EXTENSIONS
 from engine.lang import detect
 from engine.rules import convert_by_rules
 from engine.docling_converter import convert_by_docling
+
+# 需要 pip install tqdm
+from tqdm import tqdm
+
 
 # Extensions that are binary and must go through docling (not open as text)
 _BINARY_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx"}
@@ -15,18 +20,8 @@ _BINARY_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx"}
 def convert(input_path: str, output_dir: str = "output") -> str:
     """
     Main conversion function.
-
-    Args:
-        input_path: Path to the input file.
-        output_dir: Directory for output files.
-
-    Returns:
-        Converted Markdown text.
-
-    Raises:
-        ValueError: If a binary format is routed to the rules engine.
     """
-    # Step 1: Classify — decide which engine to use
+    # Step 1: Classify
     info = classify(input_path)
     ext = info["ext"].lower()
     print(f"[T2MD] File:   {info['filename']}")
@@ -37,7 +32,6 @@ def convert(input_path: str, output_dir: str = "output") -> str:
     if info["engine"] == "docling":
         markdown = convert_by_docling(input_path)
     else:
-        # Guard: binary formats cannot be read as text
         if ext in _BINARY_EXTENSIONS:
             raise ValueError(
                 f"Binary format '{ext}' was routed to rules engine. "
@@ -52,16 +46,21 @@ def convert(input_path: str, output_dir: str = "output") -> str:
 
         lang = detect(text)
         print(f"[T2MD] Language: {lang}")
-        markdown = convert_by_rules(text, lang=lang)  # ← pass lang
+        markdown = convert_by_rules(text, lang=lang)
 
-    # Step 3: Save output (with collision avoidance)
-    os.makedirs(output_dir, exist_ok=True)
+    # Step 3: 内容分类 + 保存到分类子目录
+    category = classify_content(markdown) if markdown.strip() else "general"
+    print(f"[T2MD] Category: {category}")
+
+    category_dir = os.path.join(output_dir, category)
+    os.makedirs(category_dir, exist_ok=True)
+
     base_name = os.path.splitext(info["filename"])[0]
-    output_path = os.path.join(output_dir, f"{base_name}.md")
+    output_path = os.path.join(category_dir, f"{base_name}.md")
 
     counter = 1
     while os.path.exists(output_path):
-        output_path = os.path.join(output_dir, f"{base_name}_{counter}.md")
+        output_path = os.path.join(category_dir, f"{base_name}_{counter}.md")
         counter += 1
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -77,3 +76,61 @@ def convert_text(text: str, lang: str = "en") -> str:
     Used by GUI and tests.
     """
     return convert_by_rules(text, lang=lang)
+
+
+def convert_batch(
+    src_path: str,
+    output_dir: str = "output",
+    max_workers: int = None,
+    recursive: bool = True,
+) -> dict:
+    """
+    高效批量转换（支持10万份文件）
+    """
+    src = Path(src_path)
+    if not src.exists():
+        raise FileNotFoundError(f"Source path not found: {src_path}")
+
+    # 收集文件
+    files = []
+    pattern = "**/*" if recursive and src.is_dir() else "*"
+    supported = DOCLING_EXTENSIONS | RULES_EXTENSIONS
+
+    if src.is_file():
+        if src.suffix.lower() in supported:
+            files = [src]
+    elif src.is_dir():
+        for ext in supported:
+            files.extend(src.glob(f"{pattern}{ext}"))
+
+    files = sorted(set(files))
+    total = len(files)
+
+    if total == 0:
+        print("[T2MD] No supported files found.")
+        return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
+
+    print(f"[T2MD] Found {total:,} files. Starting batch conversion...")
+
+    if max_workers is None:
+        max_workers = max(1, (os.cpu_count() or 4) // 2)
+
+    success = 0
+    failed = 0
+
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
+        future_to_file = {executor.submit(convert, str(f), output_dir): f for f in files}
+
+        with tqdm(total=total, desc="Converting", unit="file") as pbar:
+            for future in as_completed(future_to_file):
+                f = future_to_file[future]
+                try:
+                    future.result()
+                    success += 1
+                except Exception as e:
+                    failed += 1
+                    print(f"[T2MD] ❌ Failed {f.name}: {e}")
+                pbar.update(1)
+
+    print(f"[T2MD] Batch completed! Success: {success:,} | Failed: {failed:,}")
+    return {"total": total, "success": success, "failed": failed, "skipped": 0}
